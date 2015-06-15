@@ -23,6 +23,8 @@ namespace dat2csv
                     throw new FileNotFoundException(dataFilePath);
                 }
 
+                DateTime lastWriteTime = File.GetLastWriteTime(dataFilePath);
+
                 DatFileHead head;
 
                 #region 这些信息相当于成员变量了都
@@ -43,8 +45,7 @@ namespace dat2csv
                 const int SizeOfOneHistAnaTagValue = 5;
                 #endregion
 
-                //to do获取dat所对应的时间
-                DateTime time = DateTime.Now;
+
 
                 datFileBuffer = File.ReadAllBytes(dataFilePath);
                 using (MemoryStream ms = new MemoryStream(datFileBuffer, false))
@@ -185,7 +186,7 @@ namespace dat2csv
                             fileName += ".csv";
                             using (FileStream fs = new FileStream(fileName, FileMode.Create, FileAccess.ReadWrite))
                             {
-                                using (StreamWriter sw = new StreamWriter(fs))
+                                using (StreamWriter sw = new StreamWriter(fs, _encoding_gb2312))
                                 {
                                     //写文件头,列举点名
                                     sw.Write(@"时间/点名");
@@ -197,24 +198,34 @@ namespace dat2csv
                                     }
                                     sw.Write(Environment.NewLine);//回车
 
-                                    
 
+
+                                    DateTime time;
+                                    time = lastWriteTime.AddMinutes(-10);
                                     //遍历十分钟数据内的每个点
                                     int tagCountInTenMinutes = collectInfos[periodIndex].TagCountInTenMinutes;
                                     for (int tagIndex = 0; tagIndex < tagCountInTenMinutes; tagIndex++)
                                     {
                                         //搜集每个点前，先定位到其在数据区的首地址
-                                        ms.Position = collectInfos[periodIndex].TagDataOffset+SizeOfOneHistAnaTagValue*tagIndex;
+                                        ms.Position = collectInfos[periodIndex].TagDataOffset + SizeOfOneHistAnaTagValue * tagIndex;
 
 
-                                        sw.Write(DateTime.Now.ToShortTimeString());
-
+                                        sw.Write(time.ToLongTimeString());
                                         //遍历
                                         for (int Index = 0; Index < collectInfos[periodIndex].CurrentTagCount; Index++)
                                         {
                                             float value = br.ReadSingle();
                                             sw.Write(",");
-                                            sw.Write(value);
+
+                                            if (value<1e-10)
+                                            {
+                                                sw.Write(0);
+                                            }
+                                            else
+                                            {
+                                                sw.Write(value);
+                                            }
+                                            
                                             ms.Position += 1;//5字节中，前四个字节表示AV，最后一个字节表示历史值的状态
 
                                             //定位到这个点的下一个存储位置
@@ -222,13 +233,16 @@ namespace dat2csv
                                             ms.Position += SizeOfOneHistAnaTagValue * tagCountInTenMinutes;
                                         }
                                         sw.Write(Environment.NewLine);
+
+                                        time = time.AddSeconds(collectInfos[periodIndex].Period);
+
                                     }
 
                                 }//end sw
                             }//end fs
 
                         }//end for write a file
-                        
+
                         #endregion
 
                     }
@@ -242,7 +256,15 @@ namespace dat2csv
         static void Main(string[] args)
         {
 
-            Dat2CsvConverter.ConvertToCsv("62.dat");
+            //args[0] = @"D:\99SE\git\dat2csv\dat2csv\bin\Debug";
+            string folder = @"D:\99SE\git\dat2csv\dat2csv\bin\Debug"; 
+            //var filePaths = Directory.GetFiles(args[0],"*.dat");
+            var filePaths = Directory.GetFiles(folder, "*.dat");
+            foreach (var filePath in filePaths)
+            {
+                Dat2CsvConverter.ConvertToCsv(filePath);
+            }
+
 
             //converter.
 
