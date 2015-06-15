@@ -13,11 +13,7 @@ namespace dat2csv
         public class Dat2CsvConverter
         {
 
-
-
             static Encoding _encoding_gb2312 = Encoding.GetEncoding(936);
-            const int TAG_COUNT_IN_10_MINUTES = 600;
-
 
             public static void ConvertToCsv(string dataFilePath)
             {
@@ -27,25 +23,28 @@ namespace dat2csv
                     throw new FileNotFoundException(dataFilePath);
                 }
 
-
                 DatFileHead head;
 
+                #region 这些信息相当于成员变量了都
                 //dat文件的字节缓冲区
                 byte[] datFileBuffer;
 
                 //点名点号list
                 List<TagNameTagID> tagNameTagIDs;
 
-                //实际需要获取的点号数组
-                int[] tagIDsNeedToRead;
+                //搜集周期类型信息
+                CollectInfo[] collectInfos;
 
+                //搜集索引表在dat中的偏移
+                int indexStartPos = 0;
+
+
+                //一个历史点信息的大小
+                const int SizeOfOneHistAnaTagValue = 5;
+                #endregion
 
                 //to do获取dat所对应的时间
                 DateTime time = DateTime.Now;
-
-
-
-
 
                 datFileBuffer = File.ReadAllBytes(dataFilePath);
                 using (MemoryStream ms = new MemoryStream(datFileBuffer, false))
@@ -61,13 +60,13 @@ namespace dat2csv
                         head.DataOffset = br.ReadInt32();
                         head.DataLength = br.ReadInt32();
 
-                        //计算dat中需要搜集的点个数
-                        int tagCount = head.DDLength / TagNameTagID.Size;
-                        tagNameTagIDs = new List<TagNameTagID>(tagCount);
+                        //获取所有点名点号
+                        int allTagCount = head.DDLength / TagNameTagID.Size;
+                        tagNameTagIDs = new List<TagNameTagID>(allTagCount);
 
-
+                        ms.Position = head.DDOffset;
                         //读取点名点号列表
-                        for (int i = 0; i < tagCount; i++)
+                        for (int i = 0; i < allTagCount; i++)
                         {
                             byte[] tagNameBytes_gb2312 = br.ReadBytes(12);
                             string tagName = _encoding_gb2312.GetString(tagNameBytes_gb2312);
@@ -79,163 +78,158 @@ namespace dat2csv
                         //将点名点号按照点号进行排序
                         tagNameTagIDs.Sort();
 
+                        //搜集索引表偏移
+                        indexStartPos = head.IndexOffset;
+                        ms.Position = indexStartPos;
+                        //1.获取搜集周期个数
+                        int diffPeriodCount = br.ReadInt16();
 
-                        //准备读取需要读取的历史点号
+                        //将流定位到搜集类型信息处
+                        ms.Position += 8;
 
-                        #region 当前版本做的比较差，只获取了最特殊最常用的情况，就是只有一个收集周期，且都是1秒
+                        collectInfos = new CollectInfo[5];
 
-
-                        int diffCollectTypeNumber = br.ReadInt16();
-                        if (diffCollectTypeNumber != 1)
+                        #region 填充各个搜集周期信息
+                        for (int i = 0; i < diffPeriodCount; i++)
                         {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
+                            collectInfos[i] = new CollectInfo();
+                            //1.搜集周期
+                            short period = br.ReadInt16();
+                            collectInfos[i].Period = period;
+
+
+                            //2.此周期包含的组数
+                            short grpCount = br.ReadInt16();
+                            collectInfos[i].GroupCount = grpCount;
+
+                            //3.十分钟点个数
+                            int tagCountInTenMinutes = br.ReadInt32();
+                            collectInfos[i].TagCountInTenMinutes = tagCountInTenMinutes;
+
+                            //4.组信息偏移
+                            int grpInfoOffset = br.ReadInt32();
+                            collectInfos[i].GroupInfoOffset = grpInfoOffset;
+
+                            //5.
+                            ms.Position += 2;
+
+
                         }
 
-                        int tmpOffset = 0;
-                        int tmpNumber = 0;
-                        ms.Position += 4;
-                        tmpOffset = br.ReadInt32();
-                        if (tmpOffset != 10)
+
+                        //遍历各个搜集周期
+                        for (int i = 0; i < diffPeriodCount; i++)
                         {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
+
+                            //遍历搜集周期中的各个组信息,并以第一组信息为出发点对数据进行搜集
+                            for (int j = 0; j < collectInfos[i].GroupCount; j++)
+                            {
+                                short secondOffset = br.ReadInt16();
+                                short maxTagCount = br.ReadInt16();
+                                short currentTagCount = br.ReadInt16();
+                                short initTagCount = br.ReadInt16();
+
+                                int tagIDOffset = br.ReadInt32();
+                                int tagDataOffset = br.ReadInt32();
+                                ms.Position += 6;
+
+                                //以第一组搜集信息为出发点进行搜集
+                                if (secondOffset == 1)
+                                {
+                                    collectInfos[i].MaxTagCount = maxTagCount;
+                                    collectInfos[i].CurrentTagCount = currentTagCount;
+                                    collectInfos[i].TagIDOffset = tagIDOffset;
+                                    collectInfos[i].TagDataOffset = tagDataOffset + head.DataOffset;
+                                }
+                                else
+                                {
+                                    collectInfos[i].MaxTagCount += maxTagCount;
+                                    collectInfos[i].CurrentTagCount += currentTagCount;
+                                    //collectInfos[i].TagIDOffset = tagIDOffset;
+                                    //collectInfos[i].TagDataOffset = tagDataOffset;
+                                }
+
+                            }
                         }
 
 
 
-                        //1
-                        tmpNumber = br.ReadInt16();
-                        if (tmpNumber != 1)
+                        //填充点号信息
+                        for (int i = 0; i < diffPeriodCount; i++)
                         {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
-                        //1
-                        tmpNumber = br.ReadInt16();
-                        if (tmpNumber != 1)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
+                            int tagCount = collectInfos[i].CurrentTagCount;
+                            collectInfos[i].TagIDs = new List<int>(tagCount);
+
+                            ms.Position = indexStartPos + collectInfos[i].TagIDOffset;
+                            //读取需要搜集点的点号
+                            for (int j = 0; j < tagCount; j++)
+                            {
+                                int id = br.ReadInt16();
+                                collectInfos[i].TagIDs.Add(id);
+                            }
+
                         }
 
-                        //600
-                        tmpNumber = br.ReadInt32();
-                        if (tmpNumber != 600)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
-
-                        //24
-                        tmpOffset = br.ReadInt32();
-                        if (tmpOffset != 24)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
-
-                        ms.Position += 2;
-
-                        tmpNumber = br.ReadInt16();
-                        if (tmpNumber != 1)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
-
-                        int maxTagCountInDatFile = br.ReadInt16();
-                        int currentTagCountNeedToCollect = br.ReadInt16();
-                        if (currentTagCountNeedToCollect > maxTagCountInDatFile)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
-
-                        int initTagCountNeedToCollect = br.ReadInt16();
-                        if (initTagCountNeedToCollect != currentTagCountNeedToCollect)
-                        {
-                            throw new IndexOutOfRangeException("当前程序版本无法解析此dat文件");
-                        }
 
                         #endregion
 
+                        //准备读取需要读取的历史点号
 
+                        #region 读取历史数据，每个搜集周期创建一个文件
 
-                        int RealTagIndexInDat = br.ReadInt32();
-                        RealTagIndexInDat += head.IndexOffset;
-                        //将流定为到实际需要搜集的点号区
-                        ms.Position = RealTagIndexInDat;
-
-
-                        tagIDsNeedToRead = new int[currentTagCountNeedToCollect];
-                        for (int i = 0; i < currentTagCountNeedToCollect; i++)
+                        for (int periodIndex = 0; periodIndex < diffPeriodCount; periodIndex++)
                         {
-                            int tagID = br.ReadInt16();
-                            tagIDsNeedToRead[i] = tagID;
-                        }
-
-
-                        //写文件
-                        using (FileStream fs = new FileStream(Path.ChangeExtension(dataFilePath, "csv"), FileMode.Create, FileAccess.ReadWrite))
-                        {
-                            using (StreamWriter sw = new StreamWriter(fs))
+                            string fileName = Path.GetFileNameWithoutExtension(dataFilePath);
+                            fileName += "_";
+                            fileName += collectInfos[periodIndex].Period.ToString();
+                            fileName += ".csv";
+                            using (FileStream fs = new FileStream(fileName, FileMode.Create, FileAccess.ReadWrite))
                             {
-                                //写文件头
-                                sw.Write(@"时间\点名");
-                                for (int i = 0; i < tagIDsNeedToRead.Length; i++)
+                                using (StreamWriter sw = new StreamWriter(fs))
                                 {
-                                    int tid = tagIDsNeedToRead[i];
-
-                                    int index = tagNameTagIDs.BinarySearch(new TagNameTagID { TagID = tid });
-                                    if (index < 0)
+                                    //写文件头,列举点名
+                                    sw.Write(@"时间/点名");
+                                    for (int i = 0; i < collectInfos[periodIndex].TagIDs.Count; i++)
                                     {
-                                        throw new IndexOutOfRangeException("oops");
+                                        int tid = collectInfos[periodIndex].TagIDs[i];
+                                        int index = tagNameTagIDs.BinarySearch(new TagNameTagID { TagID = tid });
+                                        sw.Write("," + tagNameTagIDs[index].TagName);
+                                    }
+                                    sw.Write(Environment.NewLine);//回车
+
+                                    
+
+                                    //遍历十分钟数据内的每个点
+                                    int tagCountInTenMinutes = collectInfos[periodIndex].TagCountInTenMinutes;
+                                    for (int tagIndex = 0; tagIndex < tagCountInTenMinutes; tagIndex++)
+                                    {
+                                        //搜集每个点前，先定位到其在数据区的首地址
+                                        ms.Position = collectInfos[periodIndex].TagDataOffset+SizeOfOneHistAnaTagValue*tagIndex;
+
+
+                                        sw.Write(DateTime.Now.ToShortTimeString());
+
+                                        //遍历
+                                        for (int Index = 0; Index < collectInfos[periodIndex].CurrentTagCount; Index++)
+                                        {
+                                            float value = br.ReadSingle();
+                                            sw.Write(",");
+                                            sw.Write(value);
+                                            ms.Position += 1;//5字节中，前四个字节表示AV，最后一个字节表示历史值的状态
+
+                                            //定位到这个点的下一个存储位置
+                                            ms.Position -= 5;
+                                            ms.Position += SizeOfOneHistAnaTagValue * tagCountInTenMinutes;
+                                        }
+                                        sw.Write(Environment.NewLine);
                                     }
 
+                                }//end sw
+                            }//end fs
 
-                                    sw.Write("," + tagNameTagIDs[index].TagName);
-                                }
-                                sw.Write(Environment.NewLine);//回车
-
-
-
-                                //将流定位到实际数据区
-                                ms.Position = head.DataOffset;
-                                int pos_DataStart = (int)ms.Position;
-
-                                //to do 加注释
-                                int pos = 0;
-                                int pos2 = 0;
-
-                                //每个历史值占用的字节数
-                                const int sizeOfOneHistAnaValue = 5;
-                                //每两个不同点之间的字节间隔
-                                const int DistanceBetweenTwoTag = sizeOfOneHistAnaValue * TAG_COUNT_IN_10_MINUTES;//600*5
-
-
-                                for (int i = 0; i < TAG_COUNT_IN_10_MINUTES; i++)//600
-                                {
-                                    //
-                                    pos = sizeOfOneHistAnaValue * i + pos_DataStart;
-
-                                    sw.Write(time);
-                                    //遍历所有需要搜集的点
-                                    for (int j = 0; j < tagIDsNeedToRead.Length; j++)
-                                    {
-                                        pos2 = pos + DistanceBetweenTwoTag * j;
-                                        ms.Position = pos2;
-                                        float value = br.ReadSingle();
-
-                                        byte status = br.ReadByte();
-
-                                        sw.Write(",");
-                                        sw.Write(value);//需要调整下格式
-                                    }
-
-                                    time = time.AddSeconds(1.0);
-                                    sw.Write(Environment.NewLine);
-
-
-                                }
-                            }
-
-
-
-                        }
-
+                        }//end for write a file
+                        
+                        #endregion
 
                     }
 
@@ -248,7 +242,7 @@ namespace dat2csv
         static void Main(string[] args)
         {
 
-            Dat2CsvConverter.ConvertToCsv("10.dat");
+            Dat2CsvConverter.ConvertToCsv("62.dat");
 
             //converter.
 

@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CollectInfo.cs" />
     <Compile Include="DatFileHead.cs" />
     <Compile Include="HisAnaValueStatePair.cs" />
     <Compile Include="Program.cs" />
