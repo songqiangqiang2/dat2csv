@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dat2csv", "dat2csv\dat2csv.csproj", "{19EDF40E-AA6C-4BAB-93B2-D683D0F00B9E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{19EDF40E-AA6C-4BAB-93B2-D683D0F00B9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19EDF40E-AA6C-4BAB-93B2-D683D0F00B9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19EDF40E-AA6C-4BAB-93B2-D683D0F00B9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19EDF40E-AA6C-4BAB-93B2-D683D0F00B9E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

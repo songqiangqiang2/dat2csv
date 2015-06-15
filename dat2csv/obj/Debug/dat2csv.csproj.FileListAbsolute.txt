@@ -1,0 +1,6 @@
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\bin\Debug\dat2csv.exe.config
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\bin\Debug\dat2csv.exe
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\bin\Debug\dat2csv.pdb
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\obj\Debug\dat2csv.csprojResolveAssemblyReference.cache
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\obj\Debug\dat2csv.exe
+D:\99SE\temp\dat2csv\dat2csv\dat2csv\obj\Debug\dat2csv.pdb
