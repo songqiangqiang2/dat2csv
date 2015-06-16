@@ -88,7 +88,7 @@ namespace dat2csv
                         //将流定位到搜集类型信息处
                         ms.Position += 8;
 
-                        collectInfos = new CollectInfo[5];
+                        collectInfos = new CollectInfo[diffPeriodCount];
 
                         #region 填充各个搜集周期信息
                         for (int i = 0; i < diffPeriodCount; i++)
