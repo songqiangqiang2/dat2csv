@@ -223,7 +223,8 @@ namespace dat2csv
                                             }
                                             else
                                             {
-                                                sw.Write(value);
+                                                //float数值保留四个小数点
+                                                sw.Write(value.ToString("F4"));
                                             }
                                             
                                             ms.Position += 1;//5字节中，前四个字节表示AV，最后一个字节表示历史值的状态
