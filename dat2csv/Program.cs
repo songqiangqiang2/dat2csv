@@ -9,22 +9,18 @@ namespace dat2csv
 {
     class Program
     {
-
         public class Dat2CsvConverter
         {
-
             static Encoding _encoding_gb2312 = Encoding.GetEncoding(936);
 
             public static void ConvertToCsv(string dataFilePath)
             {
-
                 if (!File.Exists(dataFilePath))
                 {
                     throw new FileNotFoundException(dataFilePath);
                 }
 
                 DateTime lastWriteTime = File.GetLastWriteTime(dataFilePath);
-
                 DatFileHead head;
 
                 #region 这些信息相当于成员变量了都
@@ -40,12 +36,9 @@ namespace dat2csv
                 //搜集索引表在dat中的偏移
                 int indexStartPos = 0;
 
-
                 //一个历史点信息的大小
                 const int SizeOfOneHistAnaTagValue = 5;
                 #endregion
-
-
 
                 datFileBuffer = File.ReadAllBytes(dataFilePath);
                 using (MemoryStream ms = new MemoryStream(datFileBuffer, false))
@@ -87,7 +80,6 @@ namespace dat2csv
 
                         //将流定位到搜集类型信息处
                         ms.Position += 8;
-
                         collectInfos = new CollectInfo[diffPeriodCount];
 
                         #region 填充各个搜集周期信息
@@ -97,8 +89,6 @@ namespace dat2csv
                             //1.搜集周期
                             short period = br.ReadInt16();
                             collectInfos[i].Period = period;
-
-
                             //2.此周期包含的组数
                             short grpCount = br.ReadInt16();
                             collectInfos[i].GroupCount = grpCount;
@@ -113,15 +103,11 @@ namespace dat2csv
 
                             //5.
                             ms.Position += 2;
-
-
                         }
-
 
                         //遍历各个搜集周期
                         for (int i = 0; i < diffPeriodCount; i++)
                         {
-
                             //遍历搜集周期中的各个组信息,并以第一组信息为出发点对数据进行搜集
                             for (int j = 0; j < collectInfos[i].GroupCount; j++)
                             {
@@ -153,8 +139,6 @@ namespace dat2csv
                             }
                         }
 
-
-
                         //填充点号信息
                         for (int i = 0; i < diffPeriodCount; i++)
                         {
@@ -168,14 +152,11 @@ namespace dat2csv
                                 int id = br.ReadInt16();
                                 collectInfos[i].TagIDs.Add(id);
                             }
-
                         }
 
-
                         #endregion
-
+                        
                         //准备读取需要读取的历史点号
-
                         #region 读取历史数据，每个搜集周期创建一个文件
 
                         for (int periodIndex = 0; periodIndex < diffPeriodCount; periodIndex++)
@@ -198,8 +179,6 @@ namespace dat2csv
                                     }
                                     sw.Write(Environment.NewLine);//回车
 
-
-
                                     DateTime time;
                                     time = lastWriteTime.AddMinutes(-10);
                                     //遍历十分钟数据内的每个点
@@ -208,7 +187,6 @@ namespace dat2csv
                                     {
                                         //搜集每个点前，先定位到其在数据区的首地址
                                         ms.Position = collectInfos[periodIndex].TagDataOffset + SizeOfOneHistAnaTagValue * tagIndex;
-
 
                                         sw.Write(time.ToLongTimeString());
                                         //遍历
@@ -236,21 +214,15 @@ namespace dat2csv
                                         sw.Write(Environment.NewLine);
 
                                         time = time.AddSeconds(collectInfos[periodIndex].Period);
-
                                     }
 
                                 }//end sw
                             }//end fs
 
                         }//end for write a file
-
                         #endregion
-
                     }
-
                 }
-
-
             }
         }
 
@@ -265,9 +237,6 @@ namespace dat2csv
             {
                 Dat2CsvConverter.ConvertToCsv(filePath);
             }
-
-
-            //converter.
 
         }
     }
